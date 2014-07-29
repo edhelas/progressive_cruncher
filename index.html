@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+
+        <style type="text/css">
+            img {
+                max-width: 100%;
+            }
+
+            .half {
+                width: 50%;
+            }
+
+            .quarter {
+                width: 25%;
+            }
+
+            .eighth {
+                width: 12.5%;
+            }
+
+            input[type=range] {
+                width: 80%;
+            }
+        </style>
+        <script type="text/javascript" src="jpegmeta.js"></script>
+    </head>
+    <body>
+        <h1>Progressive cruncher</h1>
+
+        <span id="original_size"></span><br />
+        <span id="size"></span><br />
+
+        <input id="slider" type="range" min="0" max="200" step="10" />
+
+        <hr />
+
+        <img class="eighth"/>
+        <img class="quarter"/>
+        <img class="half"/>
+        <img class="full"/>
+
+        <script type="text/javascript">
+        var file = 'test.jpg';
+        
+        function bytesToSize(bytes) {
+            var sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            if (bytes == 0) return 'n/a';
+            var i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)));
+            return (bytes / Math.pow(1024, i)).toFixed(1) + ' ' + sizes[i];
+        };
+
+        function encode64(inputStr) 
+        {
+           var b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
+           var outputStr = "";
+           var i = 0;
+           
+           while (i<inputStr.length)
+           {
+              //all three "& 0xff" added below are there to fix a known bug 
+              //with bytes returned by xhr.responseText
+              var byte1 = inputStr.charCodeAt(i++) & 0xff;
+              var byte2 = inputStr.charCodeAt(i++) & 0xff;
+              var byte3 = inputStr.charCodeAt(i++) & 0xff;
+
+              var enc1 = byte1 >> 2;
+              var enc2 = ((byte1 & 3) << 4) | (byte2 >> 4);
+              
+              var enc3, enc4;
+              if (isNaN(byte2))
+               {
+                enc3 = enc4 = 64;
+               }
+              else
+              {
+                enc3 = ((byte2 & 15) << 2) | (byte3 >> 6);
+                if (isNaN(byte3))
+                  {
+                   enc4 = 64;
+                  }
+                else
+                  {
+                    enc4 = byte3 & 63;
+                  }
+              }
+
+              outputStr +=  b64.charAt(enc1) + b64.charAt(enc2) + b64.charAt(enc3) + b64.charAt(enc4);
+           } 
+           
+           return outputStr;
+        }
+
+        function getFile(size) {
+            var xhr = new XMLHttpRequest;
+
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState == 4) {
+                    var response = xhr.responseText;
+                    
+                    var imgs = document.querySelectorAll('img');
+
+                    for (var i = 0; i < imgs.length; i++) {
+                        imgs.item(i).src = "data:image/jpeg;base64," + encode64(response);
+                    }
+
+                    //    var jpeg = new JpegMeta.JpegFile(response);
+                    //console.log(jpeg);
+                }
+            };
+
+            xhr.open('GET', file, true);
+            xhr.overrideMimeType('text/plain; charset=x-user-defined')
+            xhr.setRequestHeader('Range', 'bytes=0-' + size); // the bytes (incl.) you request
+            xhr.send(null);
+
+            document.querySelector('#size').innerHTML = bytesToSize(size);
+        }
+
+        function getFileSize(url) {
+            var xhr = new XMLHttpRequest();
+            xhr.open("HEAD", url, true); // Notice "HEAD" instead of "GET",
+                                         //  to get only the header
+            xhr.onreadystatechange = function() {
+                if (this.readyState == this.DONE) {
+                    var lenght = xhr.getResponseHeader("Content-Length");
+                    document.querySelector('#slider').max = lenght;
+                    document.querySelector('#original_size').innerHTML = bytesToSize(lenght);
+                }
+            };
+            xhr.send();
+        }
+
+        getFileSize(file);
+
+        document.querySelector('#slider').onchange = function() {
+            getFile(this.value);
+        }
+        </script>
+    </body>
+</html>
